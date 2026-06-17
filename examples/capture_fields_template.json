@@ -5,6 +5,8 @@
   "ntime_le": "",
   "nbits_le": "",
   "nonce_le": "",
+  "sha256_midstate_bytes_be": "",
+  "sha256_second_chunk64": "",
   "header_first64": "",
   "header_tail16": "",
   "block_header": ""

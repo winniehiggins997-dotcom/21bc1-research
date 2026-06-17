@@ -203,6 +203,17 @@ cython_debug/
 # Temporary file for partial code execution
 tempCodeRunnerFile.py
 
+# Local third-party research inputs. Keep links/notes in docs instead of
+# publishing extracted upstream source trees by default.
+two1_source/
+two1_download/
+reference/two1-package-metadata/
+
+# Captures can contain local machine/user identifiers or private mining data.
+captures/private/
+*.sal
+*.logicdata
+
 # Ruff stuff:
 .ruff_cache/
 

@@ -5228,3 +5228,382 @@ WorkNotification JSON
 3. 增加 midstate 计算/展示；如果没有 SHA256 state 库，则先输出 header_first64 作为 midstate 输入。
 4. 增加 Saleae/逻辑分析仪 CSV 转 hex trace 的转换器。
 ```
+---
+
+## 第二十七轮协议重点：SHA-256 midstate、ASIC work 候选字段与协议文档（2026-06-17 15:35）
+
+本轮按“协议优先”继续推进，新增：
+
+```text
+scripts/sha256_midstate.py
+docs/protocol_notes.md
+```
+
+### 27.1 为什么要补 midstate
+
+21 源码 `CompactBlock._compute_midstate()` 明确对 block header 的前 64 字节计算 SHA-256 中间状态。
+公开 Bitcoin 资料也确认 block header 是 80 字节，前 64 字节和后 16 字节天然分成两个 SHA-256 chunk。
+
+因此 ASIC transport 抓包时，不能只找完整 80 字节 header，还要找：
+
+```text
+header_first64
+header_tail16
+sha256_midstate
+sha256_second_chunk64
+ntime
+nbits
+nonce
+target
+```
+
+### 27.2 新增 `sha256_midstate.py`
+
+该脚本用纯 Python 实现 SHA-256 compression，不依赖第三方库。
+
+已验证命令：
+
+```bash
+python scripts/sha256_midstate.py --header-file examples/generated_header.hex
+```
+
+关键验证结果：
+
+```text
+first_sha256_digest_matches_hashlib = true
+```
+
+这说明脚本计算出的 first-64 midstate 和 second chunk 可以正确复现 `hashlib.sha256(header)` 的第一轮 SHA-256 digest。
+
+示例输出中的关键字段：
+
+```text
+sha256_midstate_words_be
+sha256_midstate_words_le
+sha256_midstate_bytes_be
+sha256_second_chunk64
+sha256_second_chunk_words_be
+block_hash_internal
+block_hash_rpc
+```
+
+这些字段会成为后续逻辑分析仪 trace 匹配的候选目标。
+
+### 27.3 协议层重新分层
+
+当前项目的协议分层更新为：
+
+```text
+Pool / server work
+  -> Swirl WorkNotification
+  -> coinb1 + enonce1 + enonce2 + coinb2
+  -> Bitshare coinbase padding
+  -> coinbase txid
+  -> merkle root
+  -> 80-byte block header
+  -> SHA-256 first-64-byte midstate + second chunk
+  -> ASIC transport frame
+  -> nonce result
+  -> Swirl submit_share_request
+```
+
+其中：
+
+```text
+Swirl / Bitshare / Bitcoin header / midstate = 当前可复现
+ASIC transport frame = 仍未知，必须抓包
+```
+
+### 27.4 新增 `docs/protocol_notes.md`
+
+该文档把协议资料从超长开发日志中抽出来，专门服务后续抓包和开源说明。
+
+内容包括：
+
+```text
+1. 当前已确认内容
+2. 当前未知内容
+3. 协议层模型
+4. Bitcoin header work
+5. 21 Swirl work 字段
+6. Bitshare padding 含义
+7. ASIC work frame 候选字段
+8. 抓包策略
+9. 工具命令
+10. 外部参考链接
+```
+
+### 27.5 公开资料对我们的帮助
+
+公开 Bitcoin 资料确认：
+
+```text
+80-byte block header 是 PoW 输入。
+previous block hash 和 merkle root 使用 internal byte order。
+version / ntime / nBits / nonce 使用小端整数。
+nBits 是 target threshold 的 compact 表示。
+```
+
+cgminer / ESP-Miner / Bitaxe 这些公开项目说明：
+
+```text
+不同 ASIC 家族各有 transport 和初始化方式。
+开放项目通常要处理频率、温度、nonce、target、work 队列、芯片链路等内容。
+不能把其他 ASIC 协议直接套到 21BC1。
+但可以借鉴“host 生成 work -> ASIC 搜 nonce -> host 验 nonce”的分层方法。
+```
+
+### 27.6 当前最重要的协议推测
+
+基于 two1 源码和 midstate 结构，21BC1 HAT 到 U15 ASIC 的 work 包最可能包含以下组合之一：
+
+```text
+方案 A:
+  sha256_midstate_words
+  sha256_second_chunk_words
+  nonce range
+  target / bits_pool
+  work_id
+
+方案 B:
+  header_first64 或其 word-swapped 形式
+  header_tail16
+  target
+  work_id
+
+方案 C:
+  coinbase midstate
+  merkle/hash helper fields
+  header tail
+  nonce range
+```
+
+方案 A 当前概率最高，因为：
+
+```text
+1. two1 CompactBlock 明确计算 header first64 midstate。
+2. SHA-256 ASIC 接收 midstate + second chunk 是很自然的硬件边界。
+3. 80-byte header 的 second chunk 中 nonce 正好位于可枚举位置。
+```
+
+但必须强调：
+
+```text
+这仍然是协议候选模型，不是已确认的 21 私有协议。
+```
+
+### 27.7 下一步协议实作
+
+继续围绕协议，优先做：
+
+```text
+1. 让 compact_block_builder.py 同时输出 sha256_midstate 字段。
+2. 给 asic_trace_correlator.py 增加 word-order 组合搜索。
+3. 写 saleae_csv_to_trace.py，把逻辑分析仪 CSV 转成 hex trace。
+4. 整理 minerd socket event 样本格式。
+5. 拿真实 WorkNotification 和真实 trace 做第一次匹配。
+```
+
+参考链接已写入 `docs/protocol_notes.md`，避免复制第三方项目代码。
+
+---
+
+## 第二十八轮协议重点：Swirl 线格式、字段编号与 midstate 抓包判据（2026-06-17 15:50）
+
+本轮继续围绕“协议能否被解码、能否后续驱动 ASIC”补充资料，重点不是写驱动，而是把可确认的协议边界拆清楚。
+
+### 28.1 已确认的 Swirl 外层线格式
+
+从本地 `two1/server/message_factory.py` 可确认，Swirl 消息外层不是 JSON，也不是 Stratum 文本协议，而是：
+
+```text
+2-byte big-endian protobuf payload length
+protobuf payload
+```
+
+也就是说，抓到 `swirl+tcp://` 流量时，应该先读 2 字节大端长度，再把后续 payload 当 protobuf 解码。
+
+### 28.2 已整理 protobuf oneof 字段编号
+
+根据本地 `two1/server/swirl_pb3.py` 生成文件整理：
+
+```text
+client auth_request          = 100
+client submit_share_request  = 101
+
+server auth_reply            = 200
+server submit_share_reply    = 201
+server work_notification     = 202
+```
+
+WorkNotification 字段编号：
+
+```text
+1  work_id
+2  version
+3  prev_block_hash
+4  height
+5  nbits
+6  ntime
+7  coinb1
+8  coinb2
+9  merkle_edge
+10 new_block
+11 bits_pool
+```
+
+SubmitShareRequest 字段编号：
+
+```text
+1 message_id
+2 work_id
+3 enonce2
+4 otime
+5 nonce
+```
+
+### 28.3 关键边界：Swirl 不是 ASIC transport
+
+现在能确定：
+
+```text
+Swirl = pool/server work/share protocol
+Bitshare padding = coinbase 构造约束
+Bitcoin header/midstate = ASIC work 的候选输入材料
+ASIC transport = 仍未知，必须抓 HAT 总线
+```
+
+因此不能把 Swirl protobuf 当作 HAT 到 ASIC 的电气协议。Swirl 只告诉我们“工作是什么”和“share 怎么提交”，真正驱动矿片还需要知道底层 SPI/UART/其他总线上的帧格式。
+
+### 28.4 midstate 抓包判据已补充
+
+`scripts/compact_block_builder.py` 已能输出：
+
+```text
+sha256_midstate_bytes_be
+sha256_second_chunk64
+```
+
+并生成 midstate 版本示例：
+
+```text
+examples/generated_header_midstate.hex
+examples/generated_trace_fields_midstate.json
+```
+
+已验证：
+
+```bash
+python scripts/asic_trace_correlator.py examples/generated_header_midstate.hex --trace-format hex --fields-json examples/generated_trace_fields_midstate.json --min-field-size 4
+```
+
+验证结论：
+
+```text
+原始 80-byte header 内的字段能被匹配到。
+sha256_midstate_bytes_be 和 sha256_second_chunk64 在原始 header 内匹配不到。
+```
+
+这正好说明：真实 ASIC 抓包时，如果在总线数据中看到 midstate 或 second_chunk64，而不是完整 80 字节 header，就支持“ASIC 接收 midstate + second chunk”的候选模型。
+
+### 28.5 当前最可靠的协议工作流
+
+后续真实抓包时按以下顺序做：
+
+```text
+1. 保存同一时刻的 Swirl WorkNotification。
+2. 用 compact_block_builder.py 生成 block_header、merkle_root、target、midstate、second_chunk。
+3. 把逻辑分析仪导出的 SPI/UART/I2C 数据转成 hex trace。
+4. 用 asic_trace_correlator.py 搜索 direct / byte_reversed / word32_byte_reversed。
+5. 若找到字段，再反推帧头、长度、命令、CRC、job id、nonce range。
+6. 若完全找不到，再考虑 ASIC 使用更高层 compact work 或私有压缩格式。
+```
+
+### 28.6 开源注意
+
+`docs/protocol_notes.md` 已补充 clean-room 说明：建议仓库里保留解释、字段表、独立工具和来源链接，不直接复制第三方矿机项目实现；`two1_source/` 更适合作为本地研究资料，不建议未经许可整体发布到开源仓库。
+
+---
+
+## 第二十九轮仓库整理：一个文件夹一个用途（2026-06-17 16:10）
+
+本轮按“该合并的合并，一个文件夹一个用途”的原则整理仓库结构。
+
+### 29.1 新目录结构
+
+当前顶层只保留入口文件和许可证：
+
+```text
+README.md
+LICENSE
+docs/
+scripts/
+examples/
+demos/
+assets/
+reference/
+```
+
+### 29.2 已移动和合并的内容
+
+```text
+development_log.md
+  -> docs/development_log.md
+
+example_wallet.py
+payment_api_demo.py
+monitor_minerd.py
+  -> demos/
+
+图片/
+  -> assets/images/
+
+PKG-INFO
+README.rst
+setup.py
+setup.cfg
+  -> reference/two1-package-metadata/
+```
+
+### 29.3 各目录职责
+
+```text
+docs/       文档、协议说明、开发日志、文件清单
+scripts/    离线协议工具、midstate 工具、trace 匹配工具、安全只读硬件工具
+examples/   合成 work、trace field、header 测试向量
+demos/      旧 two1 钱包、支付、minerd 监听示例
+assets/     图片、说明书照片、硬件照片
+reference/  本地参考资料，不默认开源上传
+```
+
+### 29.4 开源边界更新
+
+`.gitignore` 已更新，默认忽略：
+
+```text
+two1_source/
+two1_download/
+reference/two1-package-metadata/
+captures/private/
+*.sal
+*.logicdata
+```
+
+这样 GitHub Desktop 不会默认上传本地 third-party 源码、旧包元数据和私密抓包数据。
+
+### 29.5 验证
+
+已完成语法检查：
+
+```text
+scripts/*.py
+demos/*.py
+syntax ok
+```
+
+新的结构说明见：
+
+```text
+README.md
+docs/FILE_INVENTORY.md
+```

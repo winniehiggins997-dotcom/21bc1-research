@@ -10,6 +10,8 @@ import json
 import struct
 from pathlib import Path
 
+from sha256_midstate import analyse_header
+
 
 def clean_hex(value):
     if value is None:
@@ -82,6 +84,7 @@ def build_from_work(work, enonce1, enonce2, nonce):
     target = bits_to_target(nbits)
     pool_target = bits_to_target(work.get("bits_pool", nbits))
     hash_int_little = int.from_bytes(block_hash_internal, "little")
+    midstate_data = analyse_header(header)
 
     trace_fields = {
         "version_le": u32_le(version).hex(),
@@ -97,6 +100,8 @@ def build_from_work(work, enonce1, enonce2, nonce):
         "block_header": header.hex(),
         "header_first64": header[:64].hex(),
         "header_tail16": header[64:].hex(),
+        "sha256_midstate_bytes_be": midstate_data["sha256_midstate_bytes_be"],
+        "sha256_second_chunk64": midstate_data["sha256_second_chunk64"],
         "block_hash_internal": block_hash_internal.hex(),
         "block_hash_rpc": rpc_hash(block_hash_internal),
     }
@@ -118,6 +123,13 @@ def build_from_work(work, enonce1, enonce2, nonce):
         "hash_int_little_hex": f"{hash_int_little:064x}",
         "meets_block_target": hash_int_little < target,
         "meets_pool_target": hash_int_little < pool_target,
+        "sha256_midstate": {
+            "words_be": midstate_data["sha256_midstate_words_be"],
+            "words_le": midstate_data["sha256_midstate_words_le"],
+            "bytes_be": midstate_data["sha256_midstate_bytes_be"],
+            "second_chunk64": midstate_data["sha256_second_chunk64"],
+            "second_chunk_words_be": midstate_data["sha256_second_chunk_words_be"],
+        },
         "trace_fields": trace_fields,
     }
 
