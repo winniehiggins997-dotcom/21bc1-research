@@ -171,6 +171,81 @@ The practical meaning for protocol reverse engineering:
 - Captures should search for both coinbase-derived hashes and block-header
   derived fields.
 
+## Public Mining Protocol Analogs
+
+These public protocols are not the 21BC1 private ASIC transport, but they are
+useful references for what mining work usually looks like before it reaches
+hardware.
+
+### getwork
+
+Bitcoin Wiki's `getwork` page describes an older JSON-RPC mining protocol. Its
+work `data` field is a preprocessed SHA-256 input in little-endian 32-bit word
+order. To recover the normal 80-byte Bitcoin header from that format, each
+32-bit word must be byte-swapped and the SHA-256 padding removed.
+
+Important points for 21BC1 capture work:
+
+```text
+getwork data ~= 80-byte header + SHA-256 padding, with 32-bit word byte swaps
+nonce offset = bytes 76..79 of the 80-byte header
+common optimization = precompute SHA-256 midstate for the first 512-bit chunk
+optional noncerange = start/end nonce range
+```
+
+This reinforces the need to search captures for:
+
+```text
+block_header
+sha256_first_pass_128
+getwork_data_like_128
+sha256_midstate_bytes_be
+sha256_second_chunk64
+nonce_le
+nonce ranges
+```
+
+`scripts/sha256_midstate.py` and `scripts/compact_block_builder.py` now export
+`sha256_first_pass_128` and `getwork_data_like_128` for this reason.
+
+### Stratum V1
+
+Stratum V1's `mining.notify` work model carries:
+
+```text
+job id
+previous block hash
+generation transaction part 1
+generation transaction part 2
+merkle branches
+block version
+nBits
+nTime
+clean jobs flag
+```
+
+Client share submission carries:
+
+```text
+worker name
+job id
+ExtraNonce2
+nTime
+nOnce
+```
+
+This is structurally close to 21 Swirl's work/share fields:
+
+```text
+Stratum: coinb1 + extranonce1 + extranonce2 + coinb2 + merkle branches
+Swirl:   coinb1 + enonce1     + enonce2     + coinb2 + merkle_edge
+```
+
+The important conclusion is not that 21BC1 uses Stratum; it does not at the
+local `two1` layer. The important conclusion is that Swirl exposes enough data
+to reconstruct the same Bitcoin mining work objects that modern Stratum miners
+also reconstruct before feeding ASICs.
+
 ## Candidate ASIC Work Frame Fields
 
 Local `two1/bitcoin/block.py` computes a midstate from:
@@ -199,6 +274,8 @@ header_first64
 header_tail16
 sha256_midstate words
 sha256_second_chunk64 words
+sha256_first_pass_128
+getwork_data_like_128
 ```
 
 Less certain, but worth checking:
@@ -222,7 +299,11 @@ case B: midstate protocol
   sha256_midstate words and sha256_second_chunk64 appear directly or
   word-swapped, while the full 80-byte header does not appear.
 
-case C: higher-level compact protocol
+case C: getwork-like internal protocol
+  a 128-byte padded SHA-256 first-pass input appears, likely with 32-bit
+  word byte swaps.
+
+case D: higher-level compact protocol
   coinbase/merkle/header-derived fields appear mixed with command bytes,
   lengths, job id, sequence numbers, or checksums.
 ```
@@ -255,7 +336,9 @@ python scripts/asic_trace_correlator.py examples/generated_header.hex \
 ```
 
 `compact_block_builder.py` also exports `sha256_midstate_bytes_be` and
-`sha256_second_chunk64` in its `trace_fields` output.
+`sha256_second_chunk64` in its `trace_fields` output. It also exports
+`sha256_first_pass_128` and `getwork_data_like_128` to help test older
+getwork-style internal byte layouts.
 
 For the midstate-focused generated example files:
 
@@ -316,3 +399,15 @@ Link: https://github.com/bitaxeorg/ESP-Miner
 Bitaxe project:
 
 Link: https://github.com/bitaxeorg/bitaxe
+
+Bitcoin Wiki `getwork` reference:
+
+Link: https://en.bitcoin.it/wiki/Getwork
+
+Bitcoin Wiki Stratum mining protocol reference:
+
+Link: https://en.bitcoin.it/wiki/Stratum_mining_protocol
+
+PyPI `two1` package metadata:
+
+Link: https://pypi.org/project/two1/3.10.9/

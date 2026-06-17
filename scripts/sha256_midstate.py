@@ -95,6 +95,12 @@ def words_le_hex(state):
     return [struct.pack("<I", word).hex() for word in state]
 
 
+def word32_byteswapped(data):
+    if len(data) % 4:
+        raise ValueError("data length must be a multiple of 4")
+    return b"".join(data[i:i + 4][::-1] for i in range(0, len(data), 4))
+
+
 def analyse_header(header):
     if len(header) != 80:
         raise ValueError("Bitcoin block header must be exactly 80 bytes")
@@ -103,6 +109,7 @@ def analyse_header(header):
     tail16 = header[64:]
     midstate = compress(first64)
     second_chunk = second_chunk_for_80_byte_header(tail16)
+    first_pass_128 = first64 + second_chunk
     first_sha_state = compress(second_chunk, midstate)
     first_sha_digest = state_to_bytes(first_sha_state)
     hashlib_first = hashlib.sha256(header).digest()
@@ -120,6 +127,8 @@ def analyse_header(header):
         "sha256_second_chunk_words_be": [
             f"{word:08x}" for word in struct.unpack(">16I", second_chunk)
         ],
+        "sha256_first_pass_128": first_pass_128.hex(),
+        "getwork_data_like_128": word32_byteswapped(first_pass_128).hex(),
         "first_sha256_digest": first_sha_digest.hex(),
         "first_sha256_digest_matches_hashlib": first_sha_digest == hashlib_first,
         "block_hash_internal": block_hash.hex(),

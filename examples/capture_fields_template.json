@@ -7,6 +7,8 @@
   "nonce_le": "",
   "sha256_midstate_bytes_be": "",
   "sha256_second_chunk64": "",
+  "sha256_first_pass_128": "",
+  "getwork_data_like_128": "",
   "header_first64": "",
   "header_tail16": "",
   "block_header": ""

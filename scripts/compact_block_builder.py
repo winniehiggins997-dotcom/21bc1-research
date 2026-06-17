@@ -102,6 +102,8 @@ def build_from_work(work, enonce1, enonce2, nonce):
         "header_tail16": header[64:].hex(),
         "sha256_midstate_bytes_be": midstate_data["sha256_midstate_bytes_be"],
         "sha256_second_chunk64": midstate_data["sha256_second_chunk64"],
+        "sha256_first_pass_128": midstate_data["sha256_first_pass_128"],
+        "getwork_data_like_128": midstate_data["getwork_data_like_128"],
         "block_hash_internal": block_hash_internal.hex(),
         "block_hash_rpc": rpc_hash(block_hash_internal),
     }
@@ -129,6 +131,8 @@ def build_from_work(work, enonce1, enonce2, nonce):
             "bytes_be": midstate_data["sha256_midstate_bytes_be"],
             "second_chunk64": midstate_data["sha256_second_chunk64"],
             "second_chunk_words_be": midstate_data["sha256_second_chunk_words_be"],
+            "first_pass_128": midstate_data["sha256_first_pass_128"],
+            "getwork_data_like_128": midstate_data["getwork_data_like_128"],
         },
         "trace_fields": trace_fields,
     }

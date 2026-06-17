@@ -5607,3 +5607,109 @@ syntax ok
 README.md
 docs/FILE_INVENTORY.md
 ```
+
+---
+
+## 第三十轮协议重点：getwork / Stratum 公开协议参照与 128 字节搜索字段（2026-06-17 16:40）
+
+本轮继续挖协议资料，重点仍是“Swirl/Bitshare/Bitcoin work 到 ASIC transport 之间到底可能传什么字段”。
+
+### 30.1 新增公开协议参照：getwork
+
+查阅 Bitcoin Wiki `getwork` 资料后，确认旧矿工协议中存在一个非常有参考价值的格式：
+
+```text
+data = 预处理后的 SHA-256 input chunks
+长度通常覆盖 80-byte block header + SHA-256 padding = 128 bytes
+以 32-bit word 为单位存在字节序交换问题
+nonce 位于 80-byte header 的 byte 76..79
+矿工常见优化是预计算 first 512-bit chunk 的 midstate
+```
+
+这说明后续抓 ASIC 总线时，不能只找：
+
+```text
+80-byte block_header
+sha256_midstate
+sha256_second_chunk64
+```
+
+还应该找：
+
+```text
+sha256_first_pass_128
+getwork_data_like_128
+```
+
+其中 `getwork_data_like_128` 是把 128 字节 first-pass input 按每 32-bit word 做 byte-swap 后得到的候选格式。
+
+### 30.2 新增公开协议参照：Stratum V1
+
+Stratum V1 的 `mining.notify` 字段结构包括：
+
+```text
+job id
+previous block hash
+generation transaction part 1
+generation transaction part 2
+merkle branches
+block version
+nBits
+nTime
+clean jobs flag
+```
+
+这与 21 Swirl work 的结构高度相似：
+
+```text
+Stratum: coinb1 + extranonce1 + extranonce2 + coinb2 + merkle branches
+Swirl:   coinb1 + enonce1     + enonce2     + coinb2 + merkle_edge
+```
+
+结论：不能说 21BC1 使用 Stratum；本地 `two1` 使用的是 Swirl。但 Swirl 提供的信息足够重建与 Stratum 矿工类似的 Bitcoin mining work。
+
+### 30.3 工具增强
+
+已更新：
+
+```text
+scripts/sha256_midstate.py
+scripts/compact_block_builder.py
+examples/capture_fields_template.json
+examples/generated_trace_fields_midstate.json
+```
+
+新增输出字段：
+
+```text
+sha256_first_pass_128
+getwork_data_like_128
+```
+
+验证命令：
+
+```bash
+python scripts/compact_block_builder.py examples/work_notification_minimal.json --enonce1 01020304 --enonce2 00000001 --nonce 0 --fields-out examples/generated_trace_fields_midstate.json --trace-out examples/generated_header_midstate.hex
+python scripts/sha256_midstate.py --header-file examples/generated_header_midstate.hex
+python scripts/asic_trace_correlator.py examples/generated_header_midstate.hex --trace-format hex --fields-json examples/generated_trace_fields_midstate.json --min-field-size 4
+```
+
+验证结果：
+
+```text
+first_sha256_digest_matches_hashlib = true
+sha256_first_pass_128 在原始 80-byte header 中不应匹配
+getwork_data_like_128 在原始 80-byte header 中不应匹配
+```
+
+这个结果正确。真实 ASIC 抓包时如果出现这些 128 字节字段，就说明底层协议可能使用 getwork 风格的内部工作格式。
+
+### 30.4 资料来源
+
+已补充到 `docs/protocol_notes.md`：
+
+```text
+https://en.bitcoin.it/wiki/Getwork
+https://en.bitcoin.it/wiki/Stratum_mining_protocol
+https://pypi.org/project/two1/3.10.9/
+```

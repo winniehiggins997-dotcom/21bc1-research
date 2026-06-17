@@ -5,8 +5,8 @@ These helpers are intentionally conservative.
 - `decode_swirl_message.py`: offline decoder for 21 Swirl protobuf frames.
 - `bitshare_padding_calc.py`: reproduces the Bitshare coinbase padding rule from `two1/bitcoin/coinbase.py`.
 - `asic_trace_correlator.py`: scans a captured byte stream for known work fields.
-- `compact_block_builder.py`: builds coinbase, merkle root, block header, and trace fields from a Swirl-like work JSON.
-- `sha256_midstate.py`: computes SHA-256 first-chunk midstate and second chunk for an 80-byte Bitcoin header.
+- `compact_block_builder.py`: builds coinbase, merkle root, block header, midstate fields, getwork-like 128-byte fields, and trace fields from a Swirl-like work JSON.
+- `sha256_midstate.py`: computes SHA-256 first-chunk midstate, second chunk, first-pass padded input, and getwork-like word-swapped input for an 80-byte Bitcoin header.
 - `read_mcp23008.py`: read-only MCP23008 register dump for Raspberry Pi/Linux SBCs.
 
 None of these scripts writes to ASIC control lines. `read_mcp23008.py` only reads registers.
