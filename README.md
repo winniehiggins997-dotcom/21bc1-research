@@ -29,17 +29,20 @@ Still unknown:
 
 1. [docs/protocol_notes.md](docs/protocol_notes.md): protocol layer model,
    Swirl fields, midstate hypothesis, capture strategy.
-2. [docs/FILE_INVENTORY.md](docs/FILE_INVENTORY.md): file-by-file inventory
+2. [docs/capture_plan.md](docs/capture_plan.md): safe logic-analyzer capture
+   plan.
+3. [docs/decoder_design.md](docs/decoder_design.md): staged decoder design.
+4. [docs/FILE_INVENTORY.md](docs/FILE_INVENTORY.md): file-by-file inventory
    and open-source notes.
-3. [scripts/README.md](scripts/README.md): helper script usage.
-4. [docs/development_log.md](docs/development_log.md): full running
+5. [scripts/README.md](scripts/README.md): helper script usage.
+6. [docs/development_log.md](docs/development_log.md): full running
    development log.
 
 ## Folder Layout
 
 | Folder | Content |
 | --- | --- |
-| `docs/` | Protocol notes, file inventory, development log. |
+| `docs/` | Protocol notes, capture plan, decoder design, file inventory, development log. |
 | `scripts/` | Offline protocol, midstate, trace, and safe hardware-read helpers. |
 | `examples/` | Synthetic work examples and generated test vectors. |
 | `demos/` | Old `two1` wallet/payment/minerd demo scripts. |
@@ -109,9 +112,11 @@ clean-room 逆向分析工具。
 
 1. [docs/protocol_notes.md](docs/protocol_notes.md)：协议分层、Swirl 字段、
    midstate 假设、抓包策略。
-2. [docs/FILE_INVENTORY.md](docs/FILE_INVENTORY.md)：所有文件和目录用途。
-3. [scripts/README.md](scripts/README.md)：脚本使用方法。
-4. [docs/development_log.md](docs/development_log.md)：完整开发记录。
+2. [docs/capture_plan.md](docs/capture_plan.md)：安全抓包步骤和通道建议。
+3. [docs/decoder_design.md](docs/decoder_design.md)：解码器分阶段设计。
+4. [docs/FILE_INVENTORY.md](docs/FILE_INVENTORY.md)：所有文件和目录用途。
+5. [scripts/README.md](scripts/README.md)：脚本使用方法。
+6. [docs/development_log.md](docs/development_log.md)：完整开发记录。
 
 ## 目录说明
 

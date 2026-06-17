@@ -5713,3 +5713,87 @@ https://en.bitcoin.it/wiki/Getwork
 https://en.bitcoin.it/wiki/Stratum_mining_protocol
 https://pypi.org/project/two1/3.10.9/
 ```
+
+---
+
+## 第三十一轮资料完善：抓包计划与解码器设计（2026-06-17 17:05）
+
+本轮把已有协议资料继续向实际操作推进，新增两份文档：
+
+```text
+docs/capture_plan.md
+docs/decoder_design.md
+```
+
+### 31.1 `docs/capture_plan.md`
+
+该文档用于指导后续真实硬件抓包，重点包括：
+
+```text
+1. 安全原则
+2. 推荐设备
+3. I2C 只读抓包
+4. 候选 SPI 抓包
+5. 候选 UART 抓包
+6. 字段匹配流程
+7. 判断标准
+8. 抓包文件命名建议
+9. 最小可交付资料
+```
+
+核心原则：
+
+```text
+先监听，不主动发送。
+先抓主机侧，不直接碰 ASIC 裸信号侧。
+先确认 reset/enable/I2C，再分析 SPI/UART。
+```
+
+### 31.2 `docs/decoder_design.md`
+
+该文档明确当前能做的是：
+
+```text
+候选字段解码器
+trace analyzer
+protocol probe
+```
+
+还不能称为：
+
+```text
+完整 21BC1 ASIC 私有协议解码器
+```
+
+解码器分层：
+
+```text
+Layer 0: raw capture bytes
+Layer 1: byte order / word order variants
+Layer 2: known Bitcoin work fields
+Layer 3: Swirl-derived work reconstruction
+Layer 4: candidate ASIC frame grouping
+Layer 5: confirmed ASIC command decoder
+```
+
+当前可实现到 Layer 3，Layer 4 只能半自动推测，Layer 5 必须等待真实抓包。
+
+### 31.3 README 与文件清单更新
+
+已把新文档加入：
+
+```text
+README.md
+docs/FILE_INVENTORY.md
+```
+
+后续推荐阅读顺序变为：
+
+```text
+1. protocol_notes.md
+2. capture_plan.md
+3. decoder_design.md
+4. FILE_INVENTORY.md
+5. scripts/README.md
+6. development_log.md
+```

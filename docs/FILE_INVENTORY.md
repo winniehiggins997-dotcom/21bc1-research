@@ -15,6 +15,8 @@ This document explains the current one-folder-per-purpose repository layout.
 | Path | Purpose | Public release note |
 | --- | --- | --- |
 | `docs/protocol_notes.md` | Clean protocol notes: Swirl, Bitshare, Bitcoin header, midstate, ASIC transport hypotheses. | Safe to publish. |
+| `docs/capture_plan.md` | Safe capture plan for I2C/SPI/UART and ASIC work-field matching. | Safe to publish. |
+| `docs/decoder_design.md` | Staged design for trace decoder and future ASIC protocol decoder. | Safe to publish. |
 | `docs/development_log.md` | Full running development log and research history. | Safe to publish after checking for personal data. |
 | `docs/FILE_INVENTORY.md` | This repository map. | Safe to publish. |
 
